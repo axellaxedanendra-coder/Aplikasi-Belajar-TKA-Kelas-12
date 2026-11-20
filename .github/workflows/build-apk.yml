@@ -18,8 +18,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        shell: bash
+        run: |
+          set +o pipefail
+          ANDROID_SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDK_MANAGER="$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDK_MANAGER" ]; then
+            SDK_MANAGER=$(find "$ANDROID_SDK" -name sdkmanager -type f | head -n 1)
+          fi
+          yes | "$SDK_MANAGER" --licenses
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -28,9 +36,12 @@ jobs:
 
       - name: Build Debug APK
         run: |
-          if [ -f TKAStudio-Android/settings.gradle.kts ]; then
-            cd TKAStudio-Android
+          SETTINGS_FILE=$(find . -maxdepth 3 -name 'settings.gradle.kts' | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "Error: settings.gradle.kts tidak ditemukan. Pastikan isi folder TKAStudio-Android sudah di-upload ke repository."
+            exit 1
           fi
+          cd "$(dirname "$SETTINGS_FILE")"
           gradle assembleDebug --no-daemon
 
       - name: Upload APK Artifact
